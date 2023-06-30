@@ -99,27 +99,6 @@ help: .help-post
 .help-post: .help-impl
 # Add your post 'help' code here...
 
-
-# Target to program the chip using the pk2cmd command-line programmer
-# -M Erase and program the entire device
-# -P Auto-detect the PIC attached to the programmer
-# -R Release /MCLR after operations (note: This can be bad when doing motor control)
-# -T Power target after operations.
-program: $(PROJECT).hex
-	$(PK2CMD) -F$(PROJECT).hex -M -PdsPIC33FJ256GP -T -R -X -B.
-
-# Verifies the target against the project Hex file:
-verify: $(PROJECT).hex
-	$(PK2CMD) -F$(PROJECT).hex -PdsPIC33FJ256GP -Y -R -T -B.
-
-# Programs the target but leaves /MCLR so the target won't run
-halt: $(PROJECT).hex
-	$(PK2CMD) -F$(PROJECT).hex -M -PdsPIC33FJ256GP -B.
-
-erase:
-	$(PK2CMD) -PdsPIC33FJ256GP -B. -E
-	$(PK2CMD) -PdsPIC33FJ256GP -B. -C
-
 # include project implementation makefile
 include nbproject/Makefile-impl.mk
 
