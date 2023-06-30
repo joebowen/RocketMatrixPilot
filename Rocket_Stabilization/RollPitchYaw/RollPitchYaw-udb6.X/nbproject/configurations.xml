@@ -229,7 +229,7 @@
         <property key="enable-handles" value="true"/>
         <property key="enable-pack-data" value="true"/>
         <property key="extra-lib-directories"
-                  value="../C:/Program Files/Microchip/MPLAB C30/lib"/>
+                  value="/opt/microchip/xc16/v1.10/bin"/>
         <property key="general-code-protect" value="no_code_protect"/>
         <property key="general-write-protect" value="no_write_protect"/>
         <property key="generate-cross-reference-file" value="false"/>
