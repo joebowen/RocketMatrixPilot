@@ -559,11 +559,14 @@ void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outpu
 #endif // NO_MIXING
 	}
 
+//	// Serial output at 1Hz  (40Hz / 40)
+//	if (udb_heartbeat_counter % 40 == 0)
+
 //	// Serial output at 2Hz  (40Hz / 20)
-//	if (udb_heartbeat_counter % 20 == 0)
+	if (udb_heartbeat_counter % 20 == 0)
 
 //  // Serial output at 10Hz
-	if (udb_heartbeat_counter % 4 == 0)
+//	if (udb_heartbeat_counter % 4 == 0)
 
 //	// Serial output at 20Hz
 //	if (udb_heartbeat_counter % 2 == 0)
@@ -575,6 +578,22 @@ void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outpu
 			send_debug_line();
 		}
 	}
+
+	if (udb_heartbeat_counter % 4 == 0)
+	{
+    tenths++ ;
+
+    if ( tenths == 10 )
+    {
+      tenths = 0 ;
+      seconds++ ;
+      if ( seconds == 60 )
+      {
+        seconds = 0 ;
+        minutes++ ;
+      }
+    }
+  }
 }
 
 int16_t accelOn ;
@@ -605,8 +624,7 @@ void send_debug_line(void)
 	}
 	else switch ( line_number )
 	{
-		
-		case 5 :
+		case 5:
 		{
 			if ( GROUND_TEST == 1)
 			{
@@ -619,14 +637,13 @@ void send_debug_line(void)
 			line_number ++ ;
 			break ;
 		}
-		
-		case 4 :
+		case 4:
 		{
 			sprintf( debug_buffer , "time, cntlModeYwPtch, cntlModeRoll, accelOn, launchCount, launched, tilt_count, apogee , rollAngle, rollDeviation, vertX, vertY, vertZ, accX, accY, accZ, gyroX, gyroY, gyroZ, " ) ;
 			line_number ++ ;
 			break ;
 		}
-		case 3 :
+		case 3:
 		{
 #if ( USE_TILT == 1)
 			int16_t tilt_tilt = tilt_defs[tilt_print_index].tilt ;
@@ -658,7 +675,7 @@ void send_debug_line(void)
 			return ;
 #endif // USE_TILT
 		}
-		case 2 :
+		case 2:
 		{
 #ifndef NO_MIXING
 			sprintf( debug_buffer , "Max Roll= %i deg, Max Roll Rate= %i deg/sec %i usecs\r\nOffsets, Accel: , %i, %i, %i, Gyro: , %i, %i, %i\r\n" , 
@@ -680,7 +697,7 @@ void send_debug_line(void)
 			
 #endif // NO_MIXING
 		}
-		case 1 :
+		case 1:
 		{
 		sprintf( debug_buffer , "%s, %s, %s\r\nGyro range %i DPS, calib %6.4f\r\nMaxTilt= %5.1f deg, TiltRate= %5.1f d/s, PWM=%i usecs\r\n" ,
 			BOARD, REVISION, DATE, GYRO_RANGE , CALIBRATION ,
@@ -691,66 +708,52 @@ void send_debug_line(void)
 		line_number ++ ;
 		break ;
 		}
-		case 6 :
-	{
-		roll_reference.x = rmat[0];
-		roll_reference.y = rmat[3];
-		roll_angle = rect_to_polar16(&roll_reference) ;
-//		sprintf(debug_buffer, "%i:%2.2i.%.1i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\r\n",
+		default:
+	  {
+      line_number++;
+      roll_reference.x = rmat[0];
+      roll_reference.y = rmat[3];
+      roll_angle = rect_to_polar16(&roll_reference) ;
+
+//		  sprintf(debug_buffer, "%i:%2.2i.%.1i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\r\n",
 #if ( GROUND_TEST == 0 )
-			sprintf(debug_buffer, "%i:%2.2i.%.1i,%i,%i,%i,%i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i\r\n",
+      sprintf(debug_buffer, "%i:%2.2i.%.1i,%i,%i,%i,%i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i\r\n",
 #else
-			sprintf(debug_buffer, "%i:%2.2i.%.1i,%i,%i,%i,%i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%i,%i,%i,%i,%i,%i\r\n",
+      sprintf(debug_buffer, "%i:%2.2i.%.1i,%i,%i,%i,%i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%i,%i,%i,%i,%i,%i\r\n",
 #endif // GROUND_TEST
-			minutes, seconds , tenths ,  controlModeYawPitch, controlModeRoll , accelOn, launch_count, launched , tilt_count, apogee, ((double)roll_angle)/(182.0) , 
-			roll_deviation,
-			rmat[6], rmat[7], rmat[8] ,
+      minutes, seconds , tenths ,  controlModeYawPitch, controlModeRoll , accelOn, launch_count, launched , tilt_count, apogee, ((double)roll_angle)/(182.0) ,
+      roll_deviation,
+      rmat[6], rmat[7], rmat[8] ,
 //			offsetX , offsetZ ,
-			-( udb_xaccel.value)/2 + ( udb_xaccel.offset ) / 2 , 
-			( udb_yaccel.value)/2 - ( udb_yaccel.offset ) / 2 ,
-			( udb_zaccel.value)/2 - ( udb_zaccel.offset ) / 2 ,
-			((double)(  omegaAccum[0])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)(  omegaAccum[1])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)(  omegaAccum[2])) / ((double)( GYRO_FACTOR/2 )) ,
+      -( udb_xaccel.value)/2 + ( udb_xaccel.offset ) / 2 ,
+      ( udb_yaccel.value)/2 - ( udb_yaccel.offset ) / 2 ,
+      ( udb_zaccel.value)/2 - ( udb_zaccel.offset ) / 2 ,
+      ((double)(  omegaAccum[0])) / ((double)( GYRO_FACTOR/2 )) ,
+      ((double)(  omegaAccum[1])) / ((double)( GYRO_FACTOR/2 )) ,
+      ((double)(  omegaAccum[2])) / ((double)( GYRO_FACTOR/2 )) ,
 #if ( GROUND_TEST == 1 )
-			((double)( omegacorrI[0])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)( omegacorrI[1])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)( omegacorrI[2])) / ((double)( GYRO_FACTOR/2 )) ,
+      ((double)( omegacorrI[0])) / ((double)( GYRO_FACTOR/2 )) ,
+      ((double)( omegacorrI[1])) / ((double)( GYRO_FACTOR/2 )) ,
+      ((double)( omegacorrI[2])) / ((double)( GYRO_FACTOR/2 )) ,
 #endif // GROUND_TEST
-			yaw_feedback_vertical ,
-			pitch_feedback_vertical ,
-			total_roll_feedback_vertical ,
-			yaw_feedback_horizontal ,
-			pitch_feedback_horizontal ,
+      yaw_feedback_vertical ,
+      pitch_feedback_vertical ,
+      total_roll_feedback_vertical ,
+      yaw_feedback_horizontal ,
+      pitch_feedback_horizontal ,
 #if ( GROUND_TEST == 0 )
-			total_roll_feedback_horizontal ,
-			udb_pwOut[1] ,
-			udb_pwOut[2] ,
-			udb_pwOut[3] ,
-			udb_pwOut[4] ,
-			udb_pwOut[5] ,
-			udb_pwOut[6] ,
-			udb_pwOut[7] ,
-			udb_pwOut[8] ) ;
+      total_roll_feedback_horizontal ,
+      udb_pwOut[1] ,
+      udb_pwOut[2] ,
+      udb_pwOut[3] ,
+      udb_pwOut[4] ,
+      udb_pwOut[5] ,
+      udb_pwOut[6] ,
+      udb_pwOut[7] ,
+      udb_pwOut[8] ) ;
 #else
-			total_roll_feedback_horizontal ) ;
+      total_roll_feedback_horizontal ) ;
 #endif // GROUND_TEST
-//			(uint16_t) udb_cpu_load() );
-			tenths ++ ;
-//			hundredths += 5 ;
-			if ( tenths == 10 )
-//			if ( hundredths == 100 )
-			{
-				tenths = 0 ;
-//				hundredths = 0 ;
-				seconds++ ;
-				if ( seconds == 60 )
-				{
-					seconds = 0 ;
-					minutes++ ;
-				}
-			}
-			break ;
 		}
 	}
 	udb_serial_start_sending_data();

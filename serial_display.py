@@ -1,13 +1,14 @@
 import serial
 import matplotlib.pyplot as plt
 import pandas as pd
+
 from matplotlib.animation import FuncAnimation
 
 # Use the dark background style.
 plt.style.use('dark_background')
 
-# Open the serial port with a baud rate of 19200.
-ser = serial.Serial('/dev/ttyUSB0', 19200)
+# Open the serial port with a baud rate of 230400.
+ser = serial.Serial('/dev/ttyUSB0', 460800)
 
 def convert_time(time_str):
     # Split the time string into minutes, seconds, and milliseconds.
@@ -32,65 +33,89 @@ def read_data():
             pass
 
 # Initialize the data frame
-df = pd.DataFrame(columns=['time', 'accelOn', 'launchCount', 'launched', 'rollAngle', 'rollDeviation', 'vertX', 'vertY', 'vertZ', 'accX', 'accY', 'accZ', 'gyroX', 'gyroY', 'gyroZ', 'gyroXoffset', 'gyroYoffset', 'gyroZoffset', 'fail_safe', 'pwm1'])
+full_df = pd.DataFrame(columns=['time', 'cntlModeYwPtch', 'cntlModeRoll', 'accelOn', 'launchCount', 'launched', 'tilt_count', 'apogee', 'rollAngle', 'rollDeviation', 'vertX', 'vertY', 'vertZ', 'accX', 'accY', 'accZ', 'gyroX', 'gyroY', 'gyroZ', 'yawFbVert', 'pitchFbVert', 'rollFbVert', 'yawFbHoriz', 'pitchFbHoriz', 'rollFbHoriz', 'out1', 'out2', 'out3', 'out4', 'out5', 'out6', 'out7', 'out8'])
 
 # Set up the figure for plotting.
-fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6), (ax7, ax8)) = plt.subplots(4, 2, sharex=True)  # Create 8 subplots arranged in a 4x2 grid
+fig, ((ax_roll, ax_gyro), (ax_accel, ax_vert), (ax_fb_vert, ax_fb_horiz), (ax_flags, ax_out), (ax_counts, ax0)) = plt.subplots(5, 2, sharex=True)  # Create 8 subplots arranged in a 4x2 grid
 
 
 # This function is called for each frame of the animation.
 def update(frame):
-    global df
+    global full_df
     # Add the new data to the data frame.
-    df.loc[len(df)] = frame
+    full_df.loc[len(full_df)] = frame
+
     # Remove data that is older than 300 seconds.
-    df = df[df['time'] >= (df['time'].iloc[-1] - 300)]
+    partial_df = full_df[full_df['time'] >= (full_df['time'].iloc[-1] - 300)]
+
     # Clear the axes for the new plots.
-    ax1.clear()
-    ax2.clear()
-    ax3.clear()
-    ax4.clear()
-    ax5.clear()
-    ax6.clear()
-    ax7.clear()
-    ax8.clear()
+    ax_roll.clear()
+    ax_gyro.clear()
+    ax_accel.clear()
+    ax_vert.clear()
+    ax_fb_vert.clear()
+    ax_fb_horiz.clear()
+    ax_flags.clear()
+    ax_out.clear()
+    ax_counts.clear()
+    ax0.clear()
+
     # Plot the new data.
-    ax1.plot(df['time'], df['rollAngle'], label='Roll Angle')
-    ax1.plot(df['time'], df['rollDeviation'], label='Roll Deviation')
-    ax2.plot(df['time'], df['gyroX'], label='Gyro X')
-    ax2.plot(df['time'], df['gyroY'], label='Gyro Y')
-    ax2.plot(df['time'], df['gyroZ'], label='Gyro Z')
-    ax3.plot(df['time'], df['accX'], label='Accel X')
-    ax3.plot(df['time'], df['accY'], label='Accel Y')
-    ax3.plot(df['time'], df['accZ'], label='Accel Z')
-    ax4.plot(df['time'], df['vertX'], label='Vert X')
-    ax4.plot(df['time'], df['vertY'], label='Vert Y')
-    ax4.plot(df['time'], df['vertZ'], label='Vert Z')
-    ax5.plot(df['time'], df['gyroXoffset'], label='Gyro X Offset')
-    ax5.plot(df['time'], df['gyroYoffset'], label='Gyro Y Offset')
-    ax5.plot(df['time'], df['gyroZoffset'], label='Gyro Z Offset')
-    ax6.plot(df['time'], df['accelOn'], label='Accel On')
-    ax6.plot(df['time'], df['launched'], label='Launched')
-    ax6.plot(df['time'], df['fail_safe'], label='Fail Safe')
-    ax7.plot(df['time'], df['pwm1'], label='PWM1')
-    ax8.plot(df['time'], df['launchCount'], label='Launch Count')
-    ax1.set_ylabel('Roll')
-    ax2.set_ylabel('Gyro')
-    ax3.set_ylabel('Accel')
-    ax4.set_ylabel('Vert')
-    ax5.set_ylabel('Gyro Offset')
-    ax6.set_ylabel('Flags')
-    ax7.set_ylabel('PWM')
-    ax8.set_ylabel('Launch Count')
+    ax_roll.plot(partial_df['time'], partial_df['rollAngle'], label='Roll Angle')
+    ax_roll.plot(partial_df['time'], partial_df['rollDeviation'], label='Roll Deviation')
+    ax_gyro.plot(partial_df['time'], partial_df['gyroX'], label='Gyro X')
+    ax_gyro.plot(partial_df['time'], partial_df['gyroY'], label='Gyro Y')
+    ax_gyro.plot(partial_df['time'], partial_df['gyroZ'], label='Gyro Z')
+    ax_accel.plot(partial_df['time'], partial_df['accX'], label='Accel X')
+    ax_accel.plot(partial_df['time'], partial_df['accY'], label='Accel Y')
+    ax_accel.plot(partial_df['time'], partial_df['accZ'], label='Accel Z')
+    ax_vert.plot(partial_df['time'], partial_df['vertX'], label='Vert X')
+    ax_vert.plot(partial_df['time'], partial_df['vertY'], label='Vert Y')
+    ax_vert.plot(partial_df['time'], partial_df['vertZ'], label='Vert Z')
+    ax_fb_vert.plot(partial_df['time'], partial_df['yawFbVert'], label='Yaw FB Vert')
+    ax_fb_vert.plot(partial_df['time'], partial_df['pitchFbVert'], label='Pitch FB Vert')
+    ax_fb_vert.plot(partial_df['time'], partial_df['rollFbVert'], label='Roll FB Vert')
+    ax_fb_horiz.plot(partial_df['time'], partial_df['yawFbHoriz'], label='Yaw FB Horiz')
+    ax_fb_horiz.plot(partial_df['time'], partial_df['pitchFbHoriz'], label='Pitch FB Horiz')
+    ax_fb_horiz.plot(partial_df['time'], partial_df['rollFbHoriz'], label='Roll FB Horiz')
+    ax_flags.plot(partial_df['time'], partial_df['accelOn'], label='Accel On')
+    ax_flags.plot(partial_df['time'], partial_df['launched'], label='Launched')
+    ax_flags.plot(partial_df['time'], partial_df['apogee'], label='Apogee')
+    ax_out.plot(partial_df['time'], partial_df['out1'], label='Out1')
+    ax_out.plot(partial_df['time'], partial_df['out2'], label='Out2')
+    ax_out.plot(partial_df['time'], partial_df['out3'], label='Out3')
+    ax_out.plot(partial_df['time'], partial_df['out4'], label='Out4')
+    ax_out.plot(partial_df['time'], partial_df['out5'], label='Out5')
+    ax_out.plot(partial_df['time'], partial_df['out6'], label='Out6')
+    ax_out.plot(partial_df['time'], partial_df['out7'], label='Out7')
+    ax_out.plot(partial_df['time'], partial_df['out8'], label='Out8')
+    ax_counts.plot(partial_df['time'], partial_df['tilt_count'], label='Tilt Count')
+    ax_counts.plot(partial_df['time'], partial_df['launchCount'], label='Launch Count')
+    ax0.plot(partial_df['time'], partial_df['cntlModeYwPtch'], label='Cntl Mode Yw Pitch')
+    ax0.plot(partial_df['time'], partial_df['cntlModeRoll'], label='Cntl Mode Roll')
+
+    ax_roll.set_ylabel('Roll')
+    ax_gyro.set_ylabel('Gyro')
+    ax_accel.set_ylabel('Accel')
+    ax_vert.set_ylabel('Vert')
+    ax_fb_vert.set_ylabel('FB Vert')
+    ax_fb_horiz.set_ylabel('FB Horiz')
+    ax_flags.set_ylabel('Flags')
+    ax_out.set_ylabel('Out')
+    ax_counts.set_ylabel('Counts')
+    ax0.set_ylabel('Control Flags')
+
     # Display the legend on each subplot.
-    ax1.legend()
-    ax2.legend()
-    ax3.legend()
-    ax4.legend()
-    ax5.legend()
-    ax6.legend()
-    ax7.legend()
-    ax8.legend()
+    ax_roll.legend()
+    ax_gyro.legend()
+    ax_accel.legend()
+    ax_vert.legend()
+    ax_fb_vert.legend()
+    ax_fb_horiz.legend()
+    ax_flags.legend()
+    ax_out.legend()
+    ax_counts.legend()
+    ax0.legend()
 
 # Create the animation.
 ani = FuncAnimation(fig, update, frames=read_data, interval=100, blit=False)
