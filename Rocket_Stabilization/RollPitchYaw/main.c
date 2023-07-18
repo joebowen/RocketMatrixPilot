@@ -92,6 +92,11 @@ int main(void)
 	return 0;
 }
 
+int16_t hundredths = 0 ;
+int16_t tenths = 0 ;
+int16_t seconds = 0 ;
+int16_t minutes = 0 ;
+
 // Called every 1/40 second at high priority
 void udb_heartbeat_40hz_callback(void)
 {
@@ -136,11 +141,6 @@ void dcm_callback_gps_location_updated(void)
 	// Blink GREEN led to show that the GPS is communicating
 	udb_led_toggle(LED_GREEN);
 }
-
-int16_t hundredths = 0 ;
-int16_t tenths = 0 ;
-int16_t seconds = 0 ;
-int16_t minutes = 0 ;
 
 #define TILT_ALLOTMENT ( 2.0*MAX_TILT_PULSE_WIDTH )
 #define SPIN_ALLOTMENT ( 2.0*MAX_SPIN_PULSE_WIDTH )
