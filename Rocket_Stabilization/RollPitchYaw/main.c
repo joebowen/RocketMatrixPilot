@@ -104,6 +104,30 @@ void udb_heartbeat_40hz_callback(void)
 			count = 0;
 		}
 	}
+
+#if (OUTPUT_HZ == 10)
+  tenths ++ ;
+#else
+  hundredths += 5 ;
+#endif // OUTPUT_HZ
+#if  (OUTPUT_HZ == 10)
+  if ( tenths == 10 )
+#else
+  if ( hundredths == 100 )
+#endif // OUTPUT_HZ
+  {
+#if (OUTPUT_HZ == 10)
+    tenths = 0 ;
+#else
+    hundredths = 0 ;
+#endif // OUTPUT_HZ
+    seconds++ ;
+    if ( seconds == 60 )
+    {
+      seconds = 0 ;
+      minutes++ ;
+    }
+  }
 }
 
 // Called every time we get gps data (1, 2, or 4 Hz, depending on GPS config)
@@ -566,31 +590,9 @@ void send_debug_line(void)
 			udb_pwOut[3]/2 ,
 			udb_pwOut[4]/2 ) ;
 //			(uint16_t) udb_cpu_load() );
-#if (OUTPUT_HZ == 10)
-			tenths ++ ;
-#else
-			hundredths += 5 ;
-#endif // OUTPUT_HZ
-#if  (OUTPUT_HZ == 10)          
-			if ( tenths == 10 )
-#else
-			if ( hundredths == 100 )
-#endif // OUTPUT_HZ
-			{
-#if (OUTPUT_HZ == 10)
-				tenths = 0 ;
-#else
-				hundredths = 0 ;
-#endif // OUTPUT_HZ
-				seconds++ ;
-				if ( seconds == 60 )
-				{
-					seconds = 0 ;
-					minutes++ ;
-				}
-			}
-            udb_serial_start_sending_data();
-			break ;
+
+      udb_serial_start_sending_data();
+  		break ;
 		}
 	}
 }
