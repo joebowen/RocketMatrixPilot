@@ -1,10 +1,10 @@
-#define CUSTOM_OFFSETS
-#define USE_TILT (0)
 #define ROLL_ONLY 1
 #define ROLL_PLUS_VERTICAL 2
 #define ROLL_PLUS_TILT 3
+#define TILT_PATTERN 4
+#define OUTPUT_HZ 20
 
-#define CONTROL_TYPE ROLL_PLUS_VERTICAL
+#define CONTROL_TYPE TILT_PATTERN
 
 #if ( CONTROL_TYPE == ROLL_ONLY )
 #define CONTROL_TEXT "roll only"
@@ -12,23 +12,44 @@
 #define YAW_PITCH_ENABLE 0
 #define TILT_X 0
 #define TILT_Y 0
-#elif ( CONTROL_TYPE == ROLL_PLUS_VERTICAL )
+#define TILT_Z 16384
+#endif // ROLL_ONLY
+
+#if ( CONTROL_TYPE == ROLL_PLUS_VERTICAL )
 #define CONTROL_TEXT "roll and vertical"
 #define ROLL_ENABLE 1
 #define YAW_PITCH_ENABLE 1
 #define TILT_X 0
 #define TILT_Y 0
-#elif ( CONTROL_TYPE == ROLL_PLUS_TILT )
+#define TILT_Z 16384
+#endif // ROLL_PLUS_VERTICAL
+
+#if ( CONTROL_TYPE == ROLL_PLUS_TILT )
 #define CONTROL_TEXT "roll and 12 deg tilt"
 #define ROLL_ENABLE 1
 #define YAW_PITCH_ENABLE 1
 #define TILT_X 2409
 #define TILT_Y 2409
-#else
+#define TILT_Z 16026
+#endif // ROLL_PLUS_TILT
+
+#if ( CONTROL_TYPE == TILT_PATTERN )
+#include "tilt_defs.h"
+#define CONTROL_TEXT "tilt pattern defined in tilt_defs.h"
+#define ROLL_ENABLE 1
+#define YAW_PITCH_ENABLE 1
+#define TILT_X 0
+#define TILT_Y 0
+#define TILT_Z 16384
+#endif // 
+
+
+#ifndef CONTROL_TYPE
 #error "no control type defined"
-#endif
-#define DATE "3/9/2022"
-#define REVISION "VOS rv1"
+#endif // CONTROL_TYPE
+
+#define DATE "6/9/2023"
+#define REVISION "VOS_port_RV3_gyro_upgrade\r\nIncludes support of tilt_defs.h files."
 #define MAX_TILT_ANGLE ( 7.5 ) // degrees
 #define MAX_TILT_RATE ( 100.0 ) // degrees per second
 #define MAX_TILT_PULSE_WIDTH ( 250.0 ) // microseconds
@@ -40,13 +61,22 @@
 //#define CALIBRATION ( 0.9945 )
 #define CALIBRATION ( 0.9972 )
 //#define GYRO_RANGE ( 500 )
-
+#define CUSTOM_OFFSETS
+#ifdef BILLS_BRD_2
+#define XACCEL_OFFSET	( 530 )
+#define YACCEL_OFFSET	( -91 )
+#define ZACCEL_OFFSET	( 436 )
+#define XRATE_OFFSET	( -85 )
+#define YRATE_OFFSET	( -8 )
+#define ZRATE_OFFSET	( -23 )
+#else
 #define XACCEL_OFFSET	( 0 )
 #define YACCEL_OFFSET	( 0 )
 #define ZACCEL_OFFSET	( 0 )
 #define XRATE_OFFSET	( 0 )
 #define YRATE_OFFSET	( 0 )
 #define ZRATE_OFFSET	( 0 )
+#endif // BILLS_BRD_2
 
 ////////////////////////////////////////////////////////////////////////////////
 // Set this value to your GPS type.  (Set to GPS_STD, GPS_UBX_2HZ, GPS_UBX_4HZ, GPS_MTEK, GPS_NMEA, or GPS_NONE)
@@ -104,7 +134,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Serial Output BAUD rate for status messages
 //  19200, 38400, 57600, 115200, 230400, 460800, 921600 // yes, it really will work at this rate
-#define SERIAL_BAUDRATE                     19200 // default
+#define SERIAL_BAUDRATE                     38400 // for 20 records per second
+//#define SERIAL_BAUDRATE                     19200 // default
 //#define SERIAL_BAUDRATE                     115200 // high speed for 40 records per second
 
 ////////////////////////////////////////////////////////////////////////////////

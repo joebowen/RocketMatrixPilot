@@ -50,14 +50,27 @@ int16_t rect_to_polar16(struct relative2D *xy);
 int16_t apogee = 0 ;
 int16_t tilted = 0 ;
 
+int16_t tilt_count = 0 ;
+
+#if (CONTROL_TYPE == TILT_PATTERN)
+struct tilt_def {
+	int16_t tilt ;
+	int16_t b ;
+	int16_t x ;
+	int16_t y ;
+	uint16_t t	;		
+};
+struct tilt_def tilt_defs[] = TILT_DEFS ;
+uint16_t NUM_TILTS = sizeof(tilt_defs)/sizeof(tilt_defs[0]) ;
+#endif // TILT_PATTERN
+
+
 #define RECORD_OFFSETS	( 0 ) // set to 1 in order to record accelerometer and gyro offsets in telemetry
 
 int main(void)
 {
 	_TRISA2 = 1 ; // SCL is input pin for enabling yaw/pitch control
 	_TRISA3 = 1 ; // SDA is input pin for enabling roll control
-	_TRISD15 = 0 ; // repurpose PWM8 input as an output
-	_LATD15 = 0 ;
 	mcu_init();
 
 	// Set up the libraries
@@ -79,9 +92,10 @@ int main(void)
 	return 0;
 }
 
-void init_events(void)
-{
-}
+int16_t hundredths = 0 ;
+int16_t tenths = 0 ;
+int16_t seconds = 0 ;
+int16_t minutes = 0 ;
 
 // Called every 1/40 second at high priority
 void udb_heartbeat_40hz_callback(void)
@@ -95,6 +109,30 @@ void udb_heartbeat_40hz_callback(void)
 			count = 0;
 		}
 	}
+
+#if (OUTPUT_HZ == 10)
+  tenths ++ ;
+#else
+  hundredths += 5 ;
+#endif // OUTPUT_HZ
+#if  (OUTPUT_HZ == 10)
+  if ( tenths == 10 )
+#else
+  if ( hundredths == 100 )
+#endif // OUTPUT_HZ
+  {
+#if (OUTPUT_HZ == 10)
+    tenths = 0 ;
+#else
+    hundredths = 0 ;
+#endif // OUTPUT_HZ
+    seconds++ ;
+    if ( seconds == 60 )
+    {
+      seconds = 0 ;
+      minutes++ ;
+    }
+  }
 }
 
 // Called every time we get gps data (1, 2, or 4 Hz, depending on GPS config)
@@ -103,11 +141,6 @@ void dcm_callback_gps_location_updated(void)
 	// Blink GREEN led to show that the GPS is communicating
 	udb_led_toggle(LED_GREEN);
 }
-
-//int16_t hundredths = 0 ;
-int16_t tenths = 0 ;
-int16_t seconds = 0 ;
-int16_t minutes = 0 ;
 
 #define TILT_ALLOTMENT ( 2.0*MAX_TILT_PULSE_WIDTH )
 #define SPIN_ALLOTMENT ( 2.0*MAX_SPIN_PULSE_WIDTH )
@@ -119,23 +152,14 @@ int16_t minutes = 0 ;
 #define SPIN_GAIN ( SPIN_ALLOTMENT * ( 256.0 / 65.0) * ( 256.0 / MAX_SPIN_RATE ) )
 #define TILT_RATE_GAIN ( TILT_ALLOTMENT * ( 256.0 / 65.0) * ( 256.0 / MAX_TILT_RATE ) )
 
-int16_t offsetX ;
-int16_t offsetY ;
-int16_t offsetZ ;
-
-struct tilt_def {
-	int16_t tilt ;
-	int16_t b ;
-	int16_t x ;
-	int16_t y ;
-	uint16_t t	;		
-};
-
+int16_t target_earth_frame_tilt[3];
+int16_t rmat_column_1[3];
+int16_t rmat_column_2[3];
+int16_t column_1_dot_target ;
+int16_t column_2_dot_target ;
 
 uint16_t tilt_index = 0 ;
 uint16_t tilt_print_index = 0 ;
-int16_t tilt_x ;
-int16_t tilt_y ;
 uint16_t tilt_t ;
 
 int16_t controlModeYawPitch = YAW_PITCH_ENABLE ;
@@ -281,8 +305,6 @@ void roll_feedback ( int16_t pitch_feedback , int16_t yaw_feedback ,  int16_t ro
 #define VERTICAL_MOUNT  1 
 #define HORIZONTAL_MOUNT  2 
 
-int16_t tilt_count = 0 ;
-
 // Called at HEARTBEAT_HZ, before sending servo pulses
 void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outputs()
 {
@@ -296,6 +318,7 @@ void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outpu
 		LED_GREEN = LED_ON ;
 		if ( launched == 1 )
 		{
+            tilt_count ++ ;
 			LED_RED = LED_ON ;
 			// update roll_angle_32
 			// compute earth frame Z axis change in angle
@@ -325,10 +348,19 @@ void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outpu
 		}
 
 		{
-			offsetX = TILT_X ;
-			offsetY = TILT_Y ;
-		}
-			
+#if ( CONTROL_TYPE == TILT_PATTERN )
+            tilt_t = tilt_defs[tilt_index].t ;
+			if ((tilt_count > 4*tilt_t) &&(tilt_index< NUM_TILTS-1)) tilt_index++;
+			target_earth_frame_tilt[0] = - tilt_defs[tilt_index].x ;
+			target_earth_frame_tilt[1] = - tilt_defs[tilt_index].y ;
+            target_earth_frame_tilt[2] =  TILT_Z ;
+        }
+#else
+            target_earth_frame_tilt[0] = - TILT_X ;
+            target_earth_frame_tilt[1] = - TILT_Y ;
+            target_earth_frame_tilt[2] =  TILT_Z ;
+        }
+#endif // TILT_PATTERN
 		{
 			if ( ( _RA2 == 0 ) || ( _RA3 == 0 ) ) // ground test simulate launch 
 			{
@@ -339,8 +371,16 @@ void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outpu
 
 		if ( ( controlModeYawPitch == 1 )  )
 		{
-			pitch_feedback_horizontal = tilt_feedback ( rmat[6] - offsetX , -omega[1] ) ;
-			yaw_feedback_horizontal = tilt_feedback ( rmat[7] - offsetY , omega[0] ) ;
+            rmat_column_1[0] = rmat[0];
+            rmat_column_1[1] = rmat[3];
+            rmat_column_1[2] = rmat[6];
+            rmat_column_2[0] = rmat[1];
+            rmat_column_2[1] = rmat[4];
+            rmat_column_2[2] = rmat[7];
+            column_1_dot_target = 2*VectorDotProduct(3,rmat_column_1,target_earth_frame_tilt);
+            column_2_dot_target = 2*VectorDotProduct(3,rmat_column_2,target_earth_frame_tilt); 
+            pitch_feedback_horizontal = tilt_feedback ( column_1_dot_target , -omega[1] ) ;
+			yaw_feedback_horizontal = tilt_feedback ( column_2_dot_target , omega[0] ) ;
 		}
 		else
 		{
@@ -372,16 +412,14 @@ void dcm_heartbeat_callback(void) // was called dcm_servo_callback_prepare_outpu
 
 	}
 
-//	// Serial output at 2Hz  (40Hz / 20)
-//	if (udb_heartbeat_counter % 20 == 0)
 
-//  // Serial output at 10Hz
+#if ( OUTPUT_HZ == 10 )
 	if (udb_heartbeat_counter % 4 == 0)
-
-//	// Serial output at 20Hz
-//	if (udb_heartbeat_counter % 2 == 0)
-
-//	otherwise, Serial output at 40 Hz
+#elif (OUTPUT_HZ == 20)
+		if (udb_heartbeat_counter % 2 == 0)
+#else
+#error "OUTPUT_HZ must be either 10 or 20"
+#endif // OUTPUT_HZ 
 	{
 		if (dcm_flags._.calib_finished)
 		{
@@ -404,52 +442,107 @@ uint16_t t_start = 0 ;
 uint16_t t_end = 0 ;
 
 int16_t line_number = 1 ;
+extern union longww omegagyro_filtered[];
 // Prepare a line of serial output and start it sending
 void send_debug_line(void)
 {
 	db_index = 0;
 	if( RECORD_OFFSETS == 1 )
 	{
-//		int16_t gravity2x = (int16_t) 2*GRAVITY ;
-//		sprintf( debug_buffer , "%i, %i, %i, %i, %i, %i, %i\r\n" , 
-//			gravity2x, udb_xaccel.value , udb_yaccel.value , udb_zaccel.value , udb_xrate.value , udb_yrate.value , udb_zrate.value ) ; 
 		sprintf( debug_buffer , "%i, %i, %i, %i, %i, %i\r\n" , 
 			udb_xaccel.value , udb_yaccel.value , udb_zaccel.value , udb_xrate.value , udb_yrate.value , udb_zrate.value ) ; 
-	}
+		udb_serial_start_sending_data();
+    }
 	else switch ( line_number )
 	{
-		
-		case 5 :
+        case 11 :
+        {
+            line_number ++ ;
+            break ;
+        }
+		case 10 :
 		{
-
-			{
-				sprintf( debug_buffer , "gyroXoffset, gyroYoffset, gyroZoffset, yawFb, pitchFb, rollFb, pwm1 , pwm2, pwm3, pwm4\r\n" ) ;
-			}
-
+			sprintf( debug_buffer , "gyroXoffset, gyroYoffset, gyroZoffset, yawFb, pitchFb, rollFb, pwm1 , pwm2, pwm3, pwm4\r\n" ) ;
+            udb_serial_start_sending_data();
 			line_number ++ ;
 			break ;
 		}
+		case 9 :
+        {
+            line_number ++ ;
+            break ;
+        }
 		
-		case 4 :
+		case 8 :
 		{
-			sprintf( debug_buffer , "time, accelOn, launchCount, launched, rollAngle, rollDeviation, vertX, vertY, vertZ, accX, accY, accZ, gyroX, gyroY, gyroZ, " ) ;
+			sprintf( debug_buffer , "time,accelOn,launchCount,launched,rollAngle,rollDeviation,vertX,vertY,vertZ,accX,accY,accZ,gyroX,gyroY,gyroZ, " ) ;
+            udb_serial_start_sending_data();
 			line_number ++ ;
 			break ;
 		}
-		case 3 :
+        case 7 :
+        {
+            sprintf( debug_buffer , "Logging rate is %i lines per second.\r\n",OUTPUT_HZ) ;
+            udb_serial_start_sending_data();
+            line_number ++ ;
+            break ;
+        }
+		case 6 :
 		{
 			sprintf( debug_buffer , "Control mode is %s.\r\n" , CONTROL_TEXT ) ;
+            udb_serial_start_sending_data();
 			line_number ++ ;
 			break ;
 		}
-		case 2 :
+        case 5 :
+        {
+            line_number ++ ;
+            break ;
+        }
+		case 4 :
 		{
 			sprintf( debug_buffer , "Roll= %i deg, Rate= %i d/s, PWM=%i usecs\r\n" , 
 			MAX_ROLL_ANGLE , (int16_t) MAX_SPIN_RATE , (int16_t) MAX_SPIN_PULSE_WIDTH ) ;
+            udb_serial_start_sending_data();
 			line_number ++ ;
 			break ;
 		}
-		case 1 :
+        case 3 :
+        {
+#if ( CONTROL_TYPE == TILT_PATTERN )
+			int16_t tilt_tilt = tilt_defs[tilt_print_index].tilt ;
+			int16_t tilt_b = tilt_defs[tilt_print_index].b ;
+			int16_t tilt_x = tilt_defs[tilt_print_index].x ;
+			int16_t tilt_y = tilt_defs[tilt_print_index].y ;
+			tilt_t = tilt_defs[tilt_print_index].t ;
+			t_end = tilt_t ;
+			if ( tilt_print_index == 0 )
+			{
+				sprintf( debug_buffer , "TILT LIST, tilt, bearing, X, Y, start time, end time\r\nTILT DEF, %i , %i , %i , %i , %.1f , %.1f\r\n" , tilt_tilt , tilt_b , tilt_x , tilt_y , ((double)t_start )/((double)10) , ((double)t_end )/((double)10) );
+                udb_serial_start_sending_data();
+			}
+			else
+			{
+				sprintf( debug_buffer , "TILT DEF, %.1f , %i , %i , %i , %.1f , %.1f\r\n" , ((double)tilt_tilt ) , tilt_b , tilt_x , tilt_y , ((double)t_start )/((double)10) , ((double)t_end )/((double)10) );
+                udb_serial_start_sending_data();
+			}
+			if ( tilt_print_index < NUM_TILTS - 1)
+			{
+				tilt_print_index ++ ;
+				t_start = t_end ;
+			}
+			else
+			{
+				line_number ++ ;
+			}
+			break ;
+#else
+			line_number ++ ;
+			return ;
+#endif // USE_TILT
+            break ;
+        }
+		case 2 :
 		{
 			sprintf( debug_buffer , "%s, %s\r\nGyro range %i DPS, calib %6.4f\r\nTilt= %5.1f deg, Rate= %5.1f d/s, PWM=%i usecs\r\n" ,
 			REVISION, DATE, GYRO_RANGE , CALIBRATION ,
@@ -457,17 +550,28 @@ void send_debug_line(void)
 			//(int16_t) TILT_GAIN , (int16_t) SPIN_GAIN ,
 			
 			 	) ;
+            udb_serial_start_sending_data();
 			line_number ++ ;
 			break ;
 		}
-		case 6 :
+        case 1 :
+        {
+            line_number ++ ;
+            break ;
+        }
+		case 12 :
 		{
 			roll_reference.x = rmat[0];
 			roll_reference.y = rmat[3];
 			roll_angle = rect_to_polar16(&roll_reference) ;
-			sprintf(debug_buffer, "%i:%2.2i.%.1i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%i,%i,%i,%i,%i,%i,%i\r\n",
+#if(OUTPUT_HZ==10)  
+            sprintf(debug_buffer, "%i:%2.2i.%.1i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%i,%i,%i,%i,%i,%i,%i\r\n",
 			minutes, seconds , tenths ,  accelOn, launch_count, launched , ((double)roll_angle)/(182.0) , 
-			roll_deviation,
+#else
+            sprintf(debug_buffer, "%i:%2.2i.%.2i,%i,%i,%i,%.2f,%i,%i,%i,%i,%i,%i,%i,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%i,%i,%i,%i,%i,%i,%i\r\n",                  
+          	minutes, seconds , hundredths ,  accelOn, launch_count, launched , ((double)roll_angle)/(182.0) ,           
+#endif // OUTPUT_HZ
+            roll_deviation,
 			rmat[6], rmat[7], rmat[8] ,
 			-( udb_xaccel.value)/2 + ( udb_xaccel.offset ) / 2 , 
 			( udb_yaccel.value)/2 - ( udb_yaccel.offset ) / 2 ,
@@ -475,9 +579,9 @@ void send_debug_line(void)
 			((double)(  omegaAccum[0])) / ((double)( GYRO_FACTOR/2 )) ,
 			((double)(  omegaAccum[1])) / ((double)( GYRO_FACTOR/2 )) ,
 			((double)(  omegaAccum[2])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)( omegacorrI[0])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)( omegacorrI[1])) / ((double)( GYRO_FACTOR/2 )) ,
-			((double)( omegacorrI[2])) / ((double)( GYRO_FACTOR/2 )) ,
+			((double)( (int16_t)(omegagyro_filtered[0].WW>>12))) / ((double)( GYRO_FACTOR*8 )) ,
+			((double)( (int16_t)(omegagyro_filtered[1].WW>>12))) / ((double)( GYRO_FACTOR*8 )) ,
+			((double)( (int16_t)(omegagyro_filtered[2].WW>>12))) / ((double)( GYRO_FACTOR*8 )) ,
 			yaw_feedback_horizontal/2 ,
 			pitch_feedback_horizontal/2 ,
 			total_roll_feedback_horizontal/2 ,
@@ -486,24 +590,11 @@ void send_debug_line(void)
 			udb_pwOut[3]/2 ,
 			udb_pwOut[4]/2 ) ;
 //			(uint16_t) udb_cpu_load() );
-			tenths ++ ;
-//			hundredths += 5 ;
-			if ( tenths == 10 )
-//			if ( hundredths == 100 )
-			{
-				tenths = 0 ;
-//				hundredths = 0 ;
-				seconds++ ;
-				if ( seconds == 60 )
-				{
-					seconds = 0 ;
-					minutes++ ;
-				}
-			}
-			break ;
+
+      udb_serial_start_sending_data();
+  		break ;
 		}
 	}
-	udb_serial_start_sending_data();
 }
 
 // Return one character at a time, as requested.
@@ -523,9 +614,5 @@ void udb_serial_callback_received_byte(uint8_t rxchar)
 }
 
 void udb_callback_radio_did_turn_off(void)
-{
-}
-
-void osd_init(void)
 {
 }
