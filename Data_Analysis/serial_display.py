@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import serial
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -7,8 +9,8 @@ from matplotlib.animation import FuncAnimation
 # Use the dark background style.
 plt.style.use('dark_background')
 
-# Open the serial port with a baud rate of 19200.
-ser = serial.Serial('/dev/ttyUSB0', 19200)
+# Open the serial port with a baud rate of 38400.
+ser = serial.Serial('/dev/ttyUSB0', 38400)
 
 def convert_time(time_str):
     # Split the time string into minutes, seconds, and milliseconds.
