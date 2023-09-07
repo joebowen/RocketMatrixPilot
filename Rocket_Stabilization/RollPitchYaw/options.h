@@ -2,9 +2,9 @@
 #define ROLL_PLUS_VERTICAL 2
 #define ROLL_PLUS_TILT 3
 #define TILT_PATTERN 4
-#define OUTPUT_HZ 20
+#define OUTPUT_HZ 1
 
-#define CONTROL_TYPE TILT_PATTERN
+#define CONTROL_TYPE ROLL_PLUS_VERTICAL
 
 #if ( CONTROL_TYPE == ROLL_ONLY )
 #define CONTROL_TEXT "roll only"
@@ -70,9 +70,9 @@
 #define YRATE_OFFSET	( -8 )
 #define ZRATE_OFFSET	( -23 )
 #else
-#define XACCEL_OFFSET	( 0 )
-#define YACCEL_OFFSET	( 0 )
-#define ZACCEL_OFFSET	( 0 )
+#define XACCEL_OFFSET	( 122 )
+#define YACCEL_OFFSET	( -1 )
+#define ZACCEL_OFFSET	( -8 )
 #define XRATE_OFFSET	( 0 )
 #define YRATE_OFFSET	( 0 )
 #define ZRATE_OFFSET	( 0 )
